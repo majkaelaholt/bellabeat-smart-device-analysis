@@ -14,4 +14,4 @@ This case study analyzes Fitbit smart device usage data to identify trends in ac
 - `bellabeat_case_study.html` — final report
 
 ## Data Source
-FitBit Fitness Tracker Data (Kaggle)
+[FitBit Fitness Tracker Data (Kaggle)](https://www.kaggle.com/datasets/arashnic/fitbit)
