@@ -1,0 +1,269 @@
+---
+title: "Smart Device Usage Data"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(lubridate)
+```
+
+## Introduction
+
+**Bellabeat** is a high-tech manufacturer of health-focused smart products for women. Collecting data on activity, sleep, stress, and reproductive health has allowed Bellabeat to empower women with knowledge about their own health and habits. Although Bellabeat has been successful as a small company, it aims to become a larger player in the global smart device market.
+
+As the smart device market becomes increasingly competitive, understanding how consumers engage with wellness technology is critical. Bellabeat needs data-driven insights to identify behavioral trends that can sharpen its marketing strategy and differentiate its products from competitors.
+
+## Ask
+
+Bellabeat’s executive team has asked the marketing analytics team to analyze smart device usage data in order to identify trends in consumer behavior. Then, using this information, the team is to provide high-level recommendations for how these trends can transform Bellabeat's marketing strategy.
+
+The product being focused on is the **Leaf**;  Bellabeat’s classic wellness tracker can be worn as a bracelet, necklace, or clip. The Leaf tracker connects to the Bellabeat app to track
+activity, sleep, and stress.
+
+
+#### 1. What are some trends in smart device usage?
+Users of smart devices tend to be predominantly sedentary, with low rates 
+of high-intensity activity and inconsistent device engagement during sleep. 
+Daily step counts commonly fall below recommended benchmarks.
+
+#### 2. How could these trends apply to Bellabeat customers?
+Bellabeat's target audience likely shares these patterns. The Leaf tracker 
+is well-positioned to address sedentary behavior and irregular sleep habits 
+by providing personalized reminders and wellness insights.
+
+#### 3. How could these trends help influence Bellabeat marketing strategy?
+Marketing campaigns could emphasize sustainable, achievable wellness goals 
+rather than intense fitness targets — aligning with how users actually 
+behave and making Bellabeat's products feel more approachable and relevant.
+
+
+## Prepare
+
+The Fitbit Fitness Tracker dataset from [Kaggle](https://www.kaggle.com/datasets/arashnic/fitbit) was selected for this analysis. The dataset contains smart device usage information, including daily activity, sleep, and calorie tracking data from Fitbit users.
+
+This analysis primarily focuses on the daily activity and sleep datasets, which contain information about user steps, calories burned, activity intensity, and sleep tracking habits.
+
+The dataset contains data from only 30 Fitbit users, which limits how broadly the findings can be generalized. Additionally, the dataset was collected in 2016 and may not fully represent current smart device usage trends.
+
+#### Importing Data Sets
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+daily_activity <- read_csv("Fitabase Data 3.12.16-4.11.16/dailyActivity_merged.csv")
+minute_sleep <- read_csv("Fitabase Data 3.12.16-4.11.16/minuteSleep_merged.csv")
+glimpse(daily_activity)
+glimpse(minute_sleep)
+```
+
+## Process
+
+Tools used throughout this analysis included R, RStudio, tidyverse, ggplot2, janitor, skimr, and lubridate. The datasets were checked for duplicate records and missing values before analysis.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+sum(is.na(daily_activity))
+sum(is.na(minute_sleep))
+
+sum(duplicated(daily_activity))
+sum(duplicated(minute_sleep))
+```
+
+No missing values were identified. The duplicate rows in the minute sleep dataset were inspected to verify whether they represented true duplicate observations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+minute_sleep %>%
+  filter(duplicated(.) | duplicated(., fromLast = TRUE)) %>%
+  arrange(date)
+```
+
+The minute sleep dataset contained 535 duplicate rows. The duplicate records were confirmed to contain matching IDs, timestamps, and recorded values. These duplicate rows were removed using the distinct() function before analysis.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+minute_sleep <- distinct(minute_sleep)
+sum(duplicated(minute_sleep))
+```
+
+The `ActivityDate` column was originally stored as a character data type. It was converted to a proper date format using the `mdy()` function from the `lubridate` package and verified afterward.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+daily_activity$ActivityDate <- mdy(daily_activity$ActivityDate)
+glimpse(daily_activity)
+```
+
+Similarly, the date column in the minute sleep dataset was originally stored as a character data type. It was converted to a proper date-time format using the mdy_hms() function from the `lubridate` package and verified afterward.
+
+```{r}
+minute_sleep <- minute_sleep %>%
+  mutate(date = parse_date_time(date, orders = "mdy HMS p"))
+```
+
+Additional cleaning steps may be performed as needed throughout the analysis process.
+
+## Analyze
+
+### Exploring Daily Activity Data
+
+The dataset was explored using summary statistics and data inspection functions to identify patterns and trends in user activity behavior.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+glimpse(daily_activity)
+summary(daily_activity)
+skim(daily_activity)
+```
+
+Initial observations suggest that users spend a significant amount of time sedentary, with an average of nearly 16.5 sedentary hours per day. Additionally, the average daily step count is approximately 6,500 steps, which is below the commonly recommended benchmark of 10,000 daily steps. The median value for VeryActiveMinutes is 0, indicating that many users recorded little to no high-intensity activity. Overall, the data appears to skew toward sedentary and light activity behavior.
+
+```{r}
+ggplot(daily_activity, aes(x = TotalSteps)) +
+  geom_histogram(binwidth = 1000, fill = "skyblue", color = "black") +
+  labs(
+    title = "Distribution of Daily Steps",
+    x = "Total Daily Steps",
+    y = "Number of Records"
+  )
+```
+
+The distribution of daily steps reveals a significant number of records with 0 recorded steps, alongside a large concentration of records near the 10,000-step range. This pattern may suggest inconsistent device usage, including periods where users were not regularly wearing or engaging with their smart devices.
+
+```{r}
+activity_minutes <- daily_activity %>%
+  select(VeryActiveMinutes,
+         FairlyActiveMinutes,
+         LightlyActiveMinutes,
+         SedentaryMinutes) %>%
+  pivot_longer(cols = everything(),
+               names_to = "ActivityLevel",
+               values_to = "Minutes")
+
+ggplot(activity_minutes, aes(x = ActivityLevel, y = Minutes)) +
+  geom_boxplot(fill = "skyblue") +
+  labs(
+    title = "Distribution of Activity Minutes",
+    x = "Activity Level",
+    y = "Minutes"
+  )
+```
+
+The distribution of activity minutes shows that most users spend a significant amount of time sedentary, while light activity is much more common than moderate or very active exercise. These trends may suggest an opportunity for Bellabeat to encourage users to engage in more consistent physical activity through reminders, activity tracking, and wellness-focused notifications.
+
+```{r}
+ggplot(daily_activity, aes(x = TotalSteps, y = Calories)) +
+  geom_point(color = "skyblue") +
+  labs(
+    title = "Calories Burned vs Daily Steps",
+    x = "Total Daily Steps",
+    y = "Calories Burned"
+  )
+```
+
+The scatterplot shows a clear positive relationship between daily steps and calories burned. In general, users who recorded more daily steps also burned more calories. This relationship reinforces the value of activity tracking and may support Bellabeat’s goal of encouraging users to build more active wellness habits.
+
+### Exploring Sleep Data
+
+The minute-level sleep dataset was summarized into daily sleep totals in order to simplify analysis and identify broader sleep behavior patterns.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+sleep_daily <- minute_sleep %>%
+  mutate(Date = as_date(date)) %>%
+  group_by(Id, Date) %>%
+  summarise(
+    TotalSleepMinutes = n(),
+    .groups = "drop"
+  )
+
+head(sleep_daily)
+```
+
+```{r}
+ggplot(sleep_daily, aes(x = TotalSleepMinutes)) +
+  geom_histogram(binwidth = 30, fill = "skyblue", color = "black") +
+  labs(
+    title = "Distribution of Sleep Duration",
+    x = "Total Sleep Minutes",
+    y = "Number of Records"
+  )
+```
+
+The distribution of sleep duration suggests that many users recorded sleep durations close to the recommended 8 hours per night. However, a noticeable portion of records show very low sleep durations. This may indicate inconsistent smart device usage during sleep, including users not regularly wearing their device to bed or interruptions in sleep tracking.
+
+### Relationships Between Metrics
+
+To explore whether daily activity levels influence sleep behavior, the activity and sleep datasets were merged for comparison.
+
+```{r}
+sleep_activity <- daily_activity %>%
+  inner_join(
+    sleep_daily,
+    by = c("Id" = "Id", "ActivityDate" = "Date")
+  )
+
+ggplot(sleep_activity, aes(x = TotalSteps, y = TotalSleepMinutes)) +
+  geom_point(color = "skyblue") +
+  labs(
+    title = "Daily Steps vs Sleep Duration",
+    x = "Total Daily Steps",
+    y = "Total Sleep Minutes"
+  )
+```
+
+The relationship between daily steps and total sleep minutes appears relatively weak, with no strong correlation visible in the data. This suggests that higher daily activity levels do not necessarily correspond with longer sleep durations among users in this dataset.
+
+## Share
+
+The analysis of Fitbit smart device data revealed several meaningful trends 
+in user behavior that can inform Bellabeat's marketing strategy.
+
+Users in this dataset were largely sedentary, averaging nearly 16.5 
+sedentary hours per day, with light activity being far more common than 
+moderate or vigorous exercise. Average daily step counts (~6,500) fell 
+below the commonly recommended 10,000-step benchmark, and the median 
+VeryActiveMinutes value was 0 — suggesting most users engage in little 
+to no high-intensity activity.
+
+A clear positive relationship was observed between daily steps and 
+calories burned, reinforcing the value of consistent movement as a 
+wellness lever. However, no strong correlation was found between daily 
+step counts and sleep duration, suggesting these are largely independent 
+behaviors.
+
+Sleep data showed considerable variation between users, with some records 
+reflecting very short durations — possibly indicating users not wearing 
+their device to bed consistently.
+
+Taken together, these trends point to an opportunity for Bellabeat to 
+focus on encouraging light-to-moderate consistent activity and better 
+sleep engagement, rather than positioning around intense fitness goals.
+
+Key findings:
+* High sedentary time averaging ~16.5 hours/day
+* Light activity far more prevalent than moderate or vigorous exercise
+* Average daily steps (~6,500) below the 10,000-step benchmark
+* Positive correlation between steps and calories burned
+* Considerable variation in sleep duration; inconsistent sleep tracking observed
+* No strong relationship between daily steps and sleep duration
+
+## Act
+
+Based on the analysis, several recommendations can be made to help support Bellabeat’s marketing and user engagement strategies.
+
+1. Encourage consistent movement through reminders and wellness notifications.
+The analysis showed that many users spent a significant amount of time sedentary, while light activity was much more common than intense exercise. Bellabeat could encourage healthier habits by implementing reminders to move throughout the day and promoting achievable activity goals. *Pro: Low-effort behavior nudges that don't require users to overhaul their routine. Con: Overuse of notifications may lead to alert fatigue and reduced engagement over time.*
+
+2. Promote activity tracking as part of overall wellness improvement.
+A positive relationship was observed between daily steps and calories burned, reinforcing the value of activity tracking. Bellabeat marketing campaigns could emphasize how consistent daily movement contributes to broader wellness benefits. *Pro: Reinforces product value with a clear, measurable benefit users can see. Con: Users who struggle to increase steps may become discouraged if goals feel unattainable.*
+
+3. Expand sleep-focused wellness features and engagement.
+Sleep duration varied considerably between users, and some users appeared to use their devices inconsistently during sleep tracking. Bellabeat could encourage better sleep tracking habits through sleep reminders, bedtime notifications, and personalized sleep insights. *Pro: Sleep is a high-interest wellness topic that differentiates Bellabeat from pure fitness trackers. Con: Sleep tracking accuracy depends heavily on consistent device wear, which the data suggests is already a challenge.*
+
+4. Focus marketing on sustainable and realistic wellness habits.
+The data suggests that many users participate more in light activity than high-intensity exercise. Bellabeat may benefit from promoting wellness habits that feel approachable and sustainable rather than focusing only on intense fitness goals. *Pro: Aligns messaging with actual user behavior, making campaigns feel more authentic and relatable. Con: Positioning around light activity may undercut perceptions of the product's capability among more fitness-focused consumers.*
+
+### Conclusion
+
+Overall, the analysis suggests that Bellabeat has an opportunity to position its products around sustainable wellness habits, daily movement, and personalized health insights. By encouraging consistent engagement through activity and sleep tracking features, Bellabeat may be able to strengthen user retention and support healthier lifestyle behaviors.
+
+## Next Steps
+
+Future analysis could include larger and more recent smart device datasets in order to improve the reliability and generalizability of findings. Bellabeat’s marketing and product development teams could also test personalized wellness reminders and engagement strategies to evaluate their impact on long-term user activity and retention.
+
